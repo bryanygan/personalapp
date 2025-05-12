@@ -31,6 +31,12 @@ struct ContentView: View {
 }
 
 struct ClockView: View {
+    // Formatter to display digital time without AM/PM
+    private let digitalFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm"
+        return f
+    }()
     let currentTime: Date
 
     var body: some View {
@@ -77,6 +83,12 @@ struct ClockView: View {
                    height: min(geometry.size.width, geometry.size.height) * 0.8)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             .background(Color.black)
+            .overlay(
+                Text(currentTime, formatter: digitalFormatter)
+                    .font(.system(size: geometry.size.width * 0.05, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .offset(x: 0, y: min(geometry.size.width, geometry.size.height) * 0.08)
+            )
         }
     }
 
