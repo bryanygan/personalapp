@@ -9,22 +9,61 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var currentTime = Date()
+    @State private var selectedTab: Int = 0
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    
+    enum SectionType: Hashable {
+        case clock, web, weather
+    }
+    let allSections: [SectionType] = [.clock, .web, .weather]
+    @State private var selectedLeft: SectionType = .clock
+    @State private var selectedRight: SectionType = .web
+    
+    @ViewBuilder
+    private func viewFor(_ section: SectionType, geometry: GeometryProxy) -> some View {
+        switch section {
+        case .clock:
+            ClockView(currentTime: currentTime)
+        case .web:
+            WebView(url: URL(string: "https://apple.com")!)
+        case .weather:
+            WeatherView()
+        }
+    }
     
     var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
-                // Clock Section
-                ClockView(currentTime: currentTime)
-                    .frame(width: geometry.size.width / 2)
-                
-                // WebView Section
-                WebView(url: URL(string: "https://apple.com")!)
-                    .frame(width: geometry.size.width / 2)
+                // Left swipe area
+                TabView(selection: $selectedLeft) {
+                    ForEach(allSections, id: \.self) { section in
+                        viewFor(section, geometry: geometry)
+                            .frame(width: geometry.size.width / 2, height: geometry.size.height)
+                            .tag(section)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+
+                // Right swipe area: exclude left selection
+                TabView(selection: $selectedRight) {
+                    ForEach(allSections.filter { $0 != selectedLeft }, id: \.self) { section in
+                        viewFor(section, geometry: geometry)
+                            .frame(width: geometry.size.width / 2, height: geometry.size.height)
+                            .tag(section)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
             }
         }
+        .ignoresSafeArea()
         .onReceive(timer) { input in
             currentTime = input
+        }
+        .onChange(of: selectedLeft) { newLeft in
+            // Ensure right is not the same as left
+            if selectedRight == newLeft {
+                selectedRight = allSections.first { $0 != newLeft }!
+            }
         }
         .previewInterfaceOrientation(.landscapeLeft)
     }
@@ -111,6 +150,15 @@ struct ClockView: View {
         let calendar = Calendar.current
         let second = Double(calendar.component(.second, from: date))
         return .degrees(second * 6)
+    }
+}
+
+struct WeatherView: View {
+    // Displays Philadelphia weather via a simple web widget
+    private let weatherURL = URL(string: "https://wttr.in/Philadelphia?format=%l:+%t+%C")!
+
+    var body: some View {
+        WebView(url: weatherURL)
     }
 }
 
