@@ -5,7 +5,113 @@
 //  Created by Bryan Gan on 5/12/25.
 //
 
+
 import SwiftUI
+
+// MARK: - Tomorrow.io Weather Models & ViewModel
+
+struct TomorrowResponse: Codable {
+    let data: TimelinesData
+}
+struct TimelinesData: Codable {
+    let timelines: [Timeline]
+}
+struct Timeline: Codable {
+    let timestep: String
+    let intervals: [Interval]
+}
+struct Interval: Codable {
+    let startTime: String
+    let values: Values
+}
+struct Values: Codable {
+    let temperature: Double
+    let weatherCode: Int
+}
+
+struct Weather: Identifiable {
+    let id = UUID()
+    let date: Date
+    let temperature: Double
+    let condition: String
+}
+
+@MainActor
+class WeatherViewModel: ObservableObject {
+    @Published var currentWeather: Weather?
+    @Published var hourlyForecast: [Weather] = []
+
+    private let apiKey = "ckqLXmq5V19LL4JtMIuQg86xDqtaDVXC"
+    private let location = "39.9526,-75.1652" // Philadelphia, PA
+    private let fields = ["temperature", "weatherCode"]
+    private let timesteps = ["current", "1h"]
+    private let units = "imperial"
+
+    func fetchWeather() async {
+        var components = URLComponents(string: "https://api.tomorrow.io/v4/timelines")!
+        components.queryItems = [
+            URLQueryItem(name: "location", value: location),
+            URLQueryItem(name: "fields", value: fields.joined(separator: ",")),
+            URLQueryItem(name: "timesteps", value: timesteps.joined(separator: ",")),
+            URLQueryItem(name: "units", value: units),
+            URLQueryItem(name: "apikey", value: apiKey)
+        ]
+
+        guard let url = components.url else { return }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let resp = try JSONDecoder().decode(TomorrowResponse.self, from: data)
+            if let currentTimeline = resp.data.timelines.first(where: { $0.timestep == "current" }),
+               let currentInterval = currentTimeline.intervals.first {
+                let date = ISO8601DateFormatter().date(from: currentInterval.startTime) ?? Date()
+                let condition = mapWeatherCode(currentInterval.values.weatherCode)
+                currentWeather = Weather(date: date,
+                                         temperature: currentInterval.values.temperature,
+                                         condition: condition)
+            }
+            if let hourlyTimeline = resp.data.timelines.first(where: { $0.timestep == "1h" }) {
+                hourlyForecast = hourlyTimeline.intervals.compactMap { interval in
+                    guard let date = ISO8601DateFormatter().date(from: interval.startTime) else { return nil }
+                    let condition = mapWeatherCode(interval.values.weatherCode)
+                    return Weather(date: date,
+                                   temperature: interval.values.temperature,
+                                   condition: condition)
+                }
+            }
+        } catch {
+            print("Weather fetch error:", error)
+        }
+    }
+
+    private func mapWeatherCode(_ code: Int) -> String {
+        switch code {
+        case 1000: return "Clear"
+        case 1100: return "Mostly Clear"
+        case 1101: return "Partly Cloudy"
+        case 1102: return "Mostly Cloudy"
+        case 1001: return "Cloudy"
+        case 2000: return "Fog"
+        case 2100: return "Light Fog"
+        case 4000: return "Drizzle"
+        case 4001: return "Rain"
+        case 4200: return "Light Rain"
+        case 4201: return "Heavy Rain"
+        case 5000: return "Snow"
+        case 5001: return "Flurries"
+        case 5100: return "Light Snow"
+        case 5101: return "Heavy Snow"
+        case 6000: return "Freezing Drizzle"
+        case 6001: return "Freezing Rain"
+        case 6200: return "Light Freezing Rain"
+        case 6201: return "Heavy Freezing Rain"
+        case 7000: return "Ice Pellets"
+        case 7101: return "Heavy Ice Pellets"
+        case 7102: return "Light Ice Pellets"
+        case 8000: return "Thunderstorm"
+        default: return "Unknown"
+        }
+    }
+}
 
 struct ContentView: View {
     @State private var currentTime = Date()
@@ -154,11 +260,44 @@ struct ClockView: View {
 }
 
 struct WeatherView: View {
-    // Displays Philadelphia weather via a simple web widget
-    private let weatherURL = URL(string: "https://wttr.in/Philadelphia?format=%l:+%t+%C")!
+    @StateObject private var vm = WeatherViewModel()
 
     var body: some View {
-        WebView(url: weatherURL)
+        VStack(alignment: .leading, spacing: 16) {
+            if let current = vm.currentWeather {
+                Text("Now: \(Int(current.temperature))°F, \(current.condition)")
+                    .font(.title2)
+                    .bold()
+            } else {
+                Text("Loading current weather...")
+                    .font(.title2)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(vm.hourlyForecast) { hour in
+                        VStack {
+                            Text(hour.date, style: .time)
+                                .font(.caption)
+                            Text("\(Int(hour.temperature))°")
+                                .font(.headline)
+                            Text(hour.condition)
+                                .font(.caption2)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.vertical, 8)
+                        .frame(width: 60)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding()
+        .task {
+            await vm.fetchWeather()
+        }
     }
 }
 
