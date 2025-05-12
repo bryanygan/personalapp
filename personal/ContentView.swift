@@ -19,7 +19,7 @@ struct ContentView: View {
                     .frame(width: geometry.size.width / 2)
                 
                 // WebView Section
-                WebView(url: URL(string: "https://google.com")!)
+                WebView(url: URL(string: "https://apple.com")!)
                     .frame(width: geometry.size.width / 2)
             }
         }
@@ -46,8 +46,8 @@ struct ClockView: View {
                 ForEach(0..<12) { tick in
                     Rectangle()
                         .fill(Color.white)
-                        .frame(width: 2, height: geometry.size.width * 0.07)
-                        .offset(y: -geometry.size.width * 0.4)
+                        .frame(width: 2, height: geometry.size.width * 0.05)
+                        .offset(y: -geometry.size.width * 0.35)
                         .rotationEffect(.degrees(Double(tick) * 30))
                 }
                 // Hour hand
