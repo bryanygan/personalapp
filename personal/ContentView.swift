@@ -296,9 +296,13 @@ struct WeatherView: View {
                 Text("Now: \(Int(current.temperature))°F, \(current.condition)")
                     .font(.title2)
                     .bold()
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
             } else {
                 Text("Loading current weather...")
                     .font(.title2)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
