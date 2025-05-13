@@ -27,6 +27,9 @@ struct Interval: Codable {
 struct Values: Codable {
     let temperature: Double
     let weatherCode: Int
+    let temperatureMin: Double?
+    let temperatureMax: Double?
+    let precipitationProbability: Int?
 }
 
 struct Weather: Identifiable {
@@ -36,15 +39,25 @@ struct Weather: Identifiable {
     let condition: String
 }
 
+struct DailyWeather: Identifiable {
+    let id = UUID()
+    let date: Date
+    let minTemp: Double
+    let maxTemp: Double
+    let precipitationProbability: Int?
+    let condition: String
+}
+
 @MainActor
 class WeatherViewModel: ObservableObject {
     @Published var currentWeather: Weather?
     @Published var hourlyForecast: [Weather] = []
+    @Published var dailyForecast: [DailyWeather] = []
 
     private let apiKey = "ckqLXmq5V19LL4JtMIuQg86xDqtaDVXC"
     private let location = "39.9526,-75.1652" // Philadelphia, PA
-    private let fields = ["temperature", "weatherCode"]
-    private let timesteps = ["current", "1h"]
+    private let fields = ["temperature", "weatherCode", "temperatureMin", "temperatureMax", "precipitationProbability"]
+    private let timesteps = ["current", "1h", "1d"]
     private let units = "imperial"
 
     func fetchWeather() async {
@@ -70,12 +83,27 @@ class WeatherViewModel: ObservableObject {
                                          condition: condition)
             }
             if let hourlyTimeline = resp.data.timelines.first(where: { $0.timestep == "1h" }) {
+                let now = Date()
+                let startOfToday = Calendar.current.startOfDay(for: now)
+                // Extend hourly data through 3AM next day
+                let cutoff = Calendar.current.date(byAdding: .hour, value: 27, to: startOfToday)!
                 hourlyForecast = hourlyTimeline.intervals.compactMap { interval in
                     guard let date = ISO8601DateFormatter().date(from: interval.startTime) else { return nil }
                     let condition = mapWeatherCode(interval.values.weatherCode)
                     return Weather(date: date,
                                    temperature: interval.values.temperature,
                                    condition: condition)
+                }
+                .filter { $0.date >= now && $0.date < cutoff }
+            }
+            if let dailyTimeline = resp.data.timelines.first(where: { $0.timestep == "1d" }) {
+                dailyForecast = dailyTimeline.intervals.compactMap { interval in
+                    guard let date = ISO8601DateFormatter().date(from: interval.startTime) else { return nil }
+                    let min = interval.values.temperatureMin ?? 0
+                    let max = interval.values.temperatureMax ?? 0
+                    let precip = interval.values.precipitationProbability
+                    let condition = mapWeatherCode(interval.values.weatherCode)
+                    return DailyWeather(date: date, minTemp: min, maxTemp: max, precipitationProbability: precip, condition: condition)
                 }
             }
         } catch {
@@ -292,6 +320,29 @@ struct WeatherView: View {
                     }
                 }
                 .padding(.horizontal)
+            }
+            Divider().padding(.vertical, 8)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(vm.dailyForecast) { day in
+                    HStack {
+                        Text(day.date, format: .dateTime.weekday(.abbreviated))
+                            .frame(width: 60, alignment: .leading)
+                        Text(day.condition)
+                            .font(.caption)
+                            .frame(width: 80, alignment: .leading)
+                        if let precip = day.precipitationProbability {
+                            Text("\(precip)%")
+                                .font(.caption2)
+                                .frame(width: 40)
+                        }
+                        Text("\(Int(day.minTemp))°")
+                            .font(.caption2)
+                            .frame(width: 30)
+                        Spacer()
+                        Text("\(Int(day.maxTemp))°")
+                            .font(.headline)
+                    }
+                }
             }
         }
         .padding()
