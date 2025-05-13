@@ -327,8 +327,25 @@ struct WeatherView: View {
             }
             Divider().padding(.vertical, 8)
             VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    Text("Day")
+                        .font(.caption)
+                        .frame(width: 60, alignment: .leading)
+                    Text("Condition")
+                        .font(.caption)
+                        .frame(width: 80, alignment: .leading)
+                    Text("Precip")
+                        .font(.caption2)
+                        .frame(width: 50, alignment: .leading)
+                    Text("Low")
+                        .font(.caption2)
+                        .frame(width: 40, alignment: .leading)
+                    Text("High")
+                        .font(.caption2)
+                        .frame(width: 40, alignment: .trailing)
+                }
                 ForEach(vm.dailyForecast) { day in
-                    HStack {
+                    HStack(spacing: 12) {
                         Text(day.date, format: .dateTime.weekday(.abbreviated))
                             .frame(width: 60, alignment: .leading)
                         Text(day.condition)
@@ -337,17 +354,18 @@ struct WeatherView: View {
                         if let precip = day.precipitationProbability {
                             Text("\(precip)%")
                                 .font(.caption2)
-                                .frame(width: 40)
+                                .frame(width: 50, alignment: .leading)
                         }
                         Text("\(Int(day.minTemp))°")
                             .font(.caption2)
-                            .frame(width: 30)
-                        Spacer()
+                            .frame(width: 40, alignment: .leading)
                         Text("\(Int(day.maxTemp))°")
                             .font(.headline)
+                            .frame(width: 40, alignment: .trailing)
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding()
         .task {
