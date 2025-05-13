@@ -145,11 +145,15 @@ struct ContentView: View {
     @State private var currentTime = Date()
     @State private var selectedTab: Int = 0
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var timerDuration: TimeInterval = 60
+    @State private var isTimerRunning = false
+    @State private var lastSetDuration: TimeInterval = 60
+    @State private var timerActive: Bool = false
     
     enum SectionType: Hashable {
-        case clock, web, weather
+        case clock, web, weather, timer
     }
-    let allSections: [SectionType] = [.clock, .web, .weather]
+    let allSections: [SectionType] = [.clock, .web, .weather, .timer]
     @State private var selectedLeft: SectionType = .clock
     @State private var selectedRight: SectionType = .web
     
@@ -162,6 +166,70 @@ struct ContentView: View {
             WebView(url: URL(string: "https://apple.com")!)
         case .weather:
             WeatherView()
+        case .timer:
+            if timerActive {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    VStack(spacing: 24) {
+                        // Format remaining time
+                        let totalSeconds = Int(timerDuration)
+                        let hrs = totalSeconds / 3600
+                        let mins = (totalSeconds % 3600) / 60
+                        let secs = totalSeconds % 60
+                        let timeString = totalSeconds >= 3600
+                            ? String(format: "%d:%02d:%02d", hrs, mins, secs)
+                            : String(format: "%02d:%02d", mins, secs)
+                        Text(timeString)
+                            .font(.system(size: 72, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                        HStack(spacing: 40) {
+                            Button("Pause") {
+                                isTimerRunning = false
+                            }
+                            Button("Cancel") {
+                                isTimerRunning = false
+                                timerActive = false
+                                timerDuration = lastSetDuration
+                            }
+                        }
+                        .font(.title2)
+                        .foregroundColor(.white)
+                    }
+                }
+            } else {
+                VStack(spacing: 16) {
+                    // Compute formatted duration string
+                    let totalSeconds = Int(timerDuration)
+                    let hrs = totalSeconds / 3600
+                    let mins = (totalSeconds % 3600) / 60
+                    let secs = totalSeconds % 60
+                    let formatted = "\(hrs) hours, \(String(format: "%02d", mins)) minutes, \(String(format: "%02d", secs)) seconds"
+
+                    Text("Countdown:")
+                        .font(.title2)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                    Text(formatted)
+                        .font(.title2)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+
+                    TimerView(duration: $timerDuration)
+                        .frame(maxWidth: .infinity, maxHeight: 200)
+                    HStack(spacing: 40) {
+                        Button("Start") {
+                            lastSetDuration = timerDuration
+                            isTimerRunning = true
+                            timerActive = true
+                        }
+                        Button("Cancel") {
+                            isTimerRunning = false
+                            timerDuration = lastSetDuration
+                        }
+                    }
+                    .font(.headline)
+                }
+            }
         }
     }
     
@@ -192,6 +260,11 @@ struct ContentView: View {
         .ignoresSafeArea()
         .onReceive(timer) { input in
             currentTime = input
+            if isTimerRunning && timerDuration > 0 {
+                timerDuration -= 1
+            } else if timerDuration <= 0 {
+                isTimerRunning = false
+            }
         }
         .onChange(of: selectedLeft) { newLeft in
             // Ensure right is not the same as left
@@ -246,7 +319,8 @@ struct ClockView: View {
                     .fill(Color.red)
                     .frame(width: 2, height: geometry.size.width * 0.35)
                     .offset(y: -geometry.size.width * 0.175)
-                    .rotationEffect(secondAngle(date: currentTime))
+                    .rotationEffect(.degrees(currentTime.timeIntervalSinceReferenceDate * 6))
+                    .animation(.linear(duration: 1), value: currentTime)
                 // Center circle
                 Circle()
                     .fill(Color.white)
@@ -370,6 +444,39 @@ struct WeatherView: View {
         .padding()
         .task {
             await vm.fetchWeather()
+        }
+    }
+}
+
+// MARK: - Built-In Countdown Timer View
+
+struct TimerView: UIViewRepresentable {
+    @Binding var duration: TimeInterval
+
+    func makeUIView(context: Context) -> UIDatePicker {
+        let picker = UIDatePicker()
+        picker.datePickerMode = .countDownTimer
+        picker.addTarget(context.coordinator,
+                         action: #selector(Coordinator.timeChanged(_:)),
+                         for: .valueChanged)
+        return picker
+    }
+
+    func updateUIView(_ uiView: UIDatePicker, context: Context) {
+        uiView.countDownDuration = duration
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject {
+        var parent: TimerView
+        init(_ parent: TimerView) {
+            self.parent = parent
+        }
+        @objc func timeChanged(_ picker: UIDatePicker) {
+            parent.duration = picker.countDownDuration
         }
     }
 }
