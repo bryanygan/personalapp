@@ -155,7 +155,7 @@ struct ContentView: View {
     }
     let allSections: [SectionType] = [.clock, .web, .weather, .timer]
     @State private var selectedLeft: SectionType = .clock
-    @State private var selectedRight: SectionType = .web
+    @State private var selectedRight: SectionType = .weather
     
     @ViewBuilder
     private func viewFor(_ section: SectionType, geometry: GeometryProxy) -> some View {
@@ -382,17 +382,28 @@ struct WeatherView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(vm.hourlyForecast) { hour in
-                        VStack {
+                        VStack(spacing: 0) {
+                            // Time at top
                             Text(hour.date, style: .time)
                                 .font(.caption)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 20)
+                            // Temperature below time
                             Text("\(Int(hour.temperature))°")
                                 .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 24)
+                            Spacer(minLength: 0)
+                            // Condition at bottom, up to two lines
                             Text(hour.condition)
                                 .font(.caption2)
                                 .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 32)
                         }
                         .padding(.vertical, 8)
-                        .frame(width: 60)
+                        .frame(width: 60, height: 80)
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(8)
                     }
