@@ -61,9 +61,9 @@ A multi-functional iOS dashboard designed for landscape orientation, featuring r
 2. Open `personal.xcodeproj` in Xcode.
 3. Replace the Tomorrow.io API key:
   - In `ContentView.swift`, update:
-  - ```swift
-     private let apiKey = "YOUR_API_KEY" // Replace with your key
-    ```
+    - ```swift
+       private let apiKey = "YOUR_API_KEY" // Replace with your key
+      ```
 4. (Optional) Modify the default location in `WeatherViewModel` (default: Philadelphia, PA):
    - ```swift
      private let location = "LATITUDE,LONGITUDE"
