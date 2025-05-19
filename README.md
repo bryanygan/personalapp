@@ -2,6 +2,8 @@
 
 A multi-functional iOS dashboard designed for landscape orientation, featuring real-time clock, weather forecasts, countdown timer, and web view. Built with SwiftUI.
 
+![Content View](assets/ContentView.png)
+
 ## Features
 
 ### 1. **Real-Time Clock**
