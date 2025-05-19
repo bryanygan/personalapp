@@ -18,7 +18,7 @@ A multi-functional iOS dashboard designed for landscape orientation, featuring r
   - Temperature
   - Weather condition (e.g., "Partly Cloudy")
 - **Daily Forecast**: 7-day outlook with:
-  - Day abbreviation (e.g., "MON")
+  - Day abbreviation (e.g., "Mon")
   - High/low temperatures
   - Precipitation probability
   - Condition
