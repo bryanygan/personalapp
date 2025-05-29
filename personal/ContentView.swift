@@ -151,6 +151,7 @@ struct ContentView: View {
     @State private var timerActive: Bool = false
     @State private var isDigitalClock = false
     @State private var showClockButtons = true
+    @State private var isDarkModeWeather = true
     
     enum SectionType: Hashable {
         case clock, web, weather, timer
@@ -167,7 +168,7 @@ struct ContentView: View {
         case .web:
             WebView(url: URL(string: "https://apple.com")!)
         case .weather:
-            WeatherView()
+            WeatherView(isDarkMode: $isDarkModeWeather)
         case .timer:
             if timerActive {
                 ZStack {
@@ -454,98 +455,178 @@ struct ClockView: View {
 
 struct WeatherView: View {
     @StateObject private var vm = WeatherViewModel()
+    @Binding var isDarkMode: Bool
+    @State private var showWeatherButtons = true
+    @State private var buttonTimer: Timer?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let current = vm.currentWeather {
-                Text("Now: \(Int(current.temperature))°F, \(current.condition)")
-                    .font(.title2)
-                    .bold()
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
-            } else {
-                Text("Loading current weather...")
-                    .font(.title2)
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
-            }
+        ZStack {
+            // Background color based on mode
+            (isDarkMode ? Color.black : Color.white)
+                .ignoresSafeArea()
+            
+            VStack(alignment: .leading, spacing: 16) {
+                if let current = vm.currentWeather {
+                    Text("Now: \(Int(current.temperature))°F, \(current.condition)")
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(isDarkMode ? .white : .black)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("Loading current weather...")
+                        .font(.title2)
+                        .foregroundColor(isDarkMode ? .white : .black)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(vm.hourlyForecast) { hour in
-                        VStack(spacing: 0) {
-                            // Time at top
-                            Text(hour.date, style: .time)
-                                .font(.caption)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 20)
-                            // Temperature below time
-                            Text("\(Int(hour.temperature))°")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 24)
-                            Spacer(minLength: 0)
-                            // Condition at bottom, up to two lines
-                            Text(hour.condition)
-                                .font(.caption2)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 32)
-                        }
-                        .padding(.vertical, 8)
-                        .frame(width: 60, height: 80)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(8)
-                    }
-                }
-                .padding(.horizontal)
-            }
-            Divider().padding(.vertical, 8)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
-                    Text("Day")
-                        .font(.caption)
-                        .frame(width: 60, alignment: .leading)
-                    Text("Condition")
-                        .font(.caption)
-                        .frame(width: 80, alignment: .leading)
-                    Text("Precip")
-                        .font(.caption2)
-                        .frame(width: 50, alignment: .leading)
-                    Text("Low")
-                        .font(.caption2)
-                        .frame(width: 40, alignment: .leading)
-                    Text("High")
-                        .font(.caption2)
-                        .frame(width: 40, alignment: .trailing)
-                }
-                ForEach(vm.dailyForecast) { day in
+                ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        Text(day.date, format: .dateTime.weekday(.abbreviated))
-                            .frame(width: 60, alignment: .leading)
-                        Text(day.condition)
-                            .font(.caption)
-                            .frame(width: 80, alignment: .leading)
-                        if let precip = day.precipitationProbability {
-                            Text("\(precip)%")
-                                .font(.caption2)
-                                .frame(width: 50, alignment: .leading)
+                        ForEach(vm.hourlyForecast) { hour in
+                            VStack(spacing: 0) {
+                                // Time at top
+                                Text(hour.date, style: .time)
+                                    .font(.caption)
+                                    .foregroundColor(isDarkMode ? .white : .black)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 20)
+                                // Temperature below time
+                                Text("\(Int(hour.temperature))°")
+                                    .font(.headline)
+                                    .foregroundColor(isDarkMode ? .white : .black)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 24)
+                                Spacer(minLength: 0)
+                                // Condition at bottom, up to two lines
+                                Text(hour.condition)
+                                    .font(.caption2)
+                                    .foregroundColor(isDarkMode ? .white : .black)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 32)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(width: 60, height: 80)
+                            .background(isDarkMode ? Color.gray.opacity(0.3) : Color(.secondarySystemBackground))
+                            .cornerRadius(8)
                         }
-                        Text("\(Int(day.minTemp))°")
+                    }
+                    .padding(.horizontal)
+                }
+                .clipped()
+                Divider()
+                    .background(isDarkMode ? Color.white : Color.black)
+                    .padding(.vertical, 8)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        Text("Day")
+                            .font(.caption)
+                            .foregroundColor(isDarkMode ? .white : .black)
+                            .frame(width: 60, alignment: .leading)
+                        Text("Condition")
+                            .font(.caption)
+                            .foregroundColor(isDarkMode ? .white : .black)
+                            .frame(width: 80, alignment: .leading)
+                        Text("Precip")
                             .font(.caption2)
+                            .foregroundColor(isDarkMode ? .white : .black)
+                            .frame(width: 50, alignment: .leading)
+                        Text("Low")
+                            .font(.caption2)
+                            .foregroundColor(isDarkMode ? .white : .black)
                             .frame(width: 40, alignment: .leading)
-                        Text("\(Int(day.maxTemp))°")
-                            .font(.headline)
+                        Text("High")
+                            .font(.caption2)
+                            .foregroundColor(isDarkMode ? .white : .black)
                             .frame(width: 40, alignment: .trailing)
                     }
+                    ForEach(vm.dailyForecast) { day in
+                        HStack(spacing: 12) {
+                            Text(day.date, format: .dateTime.weekday(.abbreviated))
+                                .foregroundColor(isDarkMode ? .white : .black)
+                                .frame(width: 60, alignment: .leading)
+                            Text(day.condition)
+                                .font(.caption)
+                                .foregroundColor(isDarkMode ? .white : .black)
+                                .frame(width: 80, alignment: .leading)
+                            if let precip = day.precipitationProbability {
+                                Text("\(precip)%")
+                                    .font(.caption2)
+                                    .foregroundColor(isDarkMode ? .white : .black)
+                                    .frame(width: 50, alignment: .leading)
+                            }
+                            Text("\(Int(day.minTemp))°")
+                                .font(.caption2)
+                                .foregroundColor(isDarkMode ? .white : .black)
+                                .frame(width: 40, alignment: .leading)
+                            Text("\(Int(day.maxTemp))°")
+                                .font(.headline)
+                                .foregroundColor(isDarkMode ? .white : .black)
+                                .frame(width: 40, alignment: .trailing)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding()
+            
+            // Toggle buttons for dark/light mode
+            if showWeatherButtons {
+                VStack {
+                    HStack(spacing: 20) {
+                        Button(action: {
+                            isDarkMode = false
+                            resetButtonTimer()
+                        }) {
+                            Text("Light")
+                                .font(.caption)
+                                .foregroundColor(isDarkMode ? .gray : (isDarkMode ? .white : .black))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(isDarkMode ? Color.clear : Color.black.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        
+                        Button(action: {
+                            isDarkMode = true
+                            resetButtonTimer()
+                        }) {
+                            Text("Dark")
+                                .font(.caption)
+                                .foregroundColor(isDarkMode ? .white : .gray)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(isDarkMode ? Color.white.opacity(0.2) : Color.clear)
+                                .cornerRadius(8)
+                        }
+                    }
+                    .padding(.top, 20)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                    Spacer()
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            showWeatherButtons = true
+            resetButtonTimer()
+        }
+        .onAppear {
+            resetButtonTimer()
+        }
         .task {
             await vm.fetchWeather()
+        }
+    }
+    
+    private func resetButtonTimer() {
+        buttonTimer?.invalidate()
+        buttonTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showWeatherButtons = false
+            }
         }
     }
 }
