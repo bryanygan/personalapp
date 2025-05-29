@@ -149,6 +149,8 @@ struct ContentView: View {
     @State private var isTimerRunning = false
     @State private var lastSetDuration: TimeInterval = 60
     @State private var timerActive: Bool = false
+    @State private var isDigitalClock = false
+    @State private var showClockButtons = true
     
     enum SectionType: Hashable {
         case clock, web, weather, timer
@@ -161,7 +163,7 @@ struct ContentView: View {
     private func viewFor(_ section: SectionType, geometry: GeometryProxy) -> some View {
         switch section {
         case .clock:
-            ClockView(currentTime: currentTime)
+            ClockView(currentTime: currentTime, isDigital: $isDigitalClock, showButtons: $showClockButtons)
         case .web:
             WebView(url: URL(string: "https://apple.com")!)
         case .weather:
@@ -283,59 +285,148 @@ struct ClockView: View {
         f.dateFormat = "h:mm"
         return f
     }()
+    
+    private let hourFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h"
+        return f
+    }()
+    
+    private let minuteFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "mm"
+        return f
+    }()
+    
     let currentTime: Date
+    @Binding var isDigital: Bool
+    @Binding var showButtons: Bool
+    @State private var buttonTimer: Timer?
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Clock face
-                Circle()
-                    .fill(Color.clear)
+                Color.black.ignoresSafeArea()
+                
+                if isDigital {
+                    // Digital Clock Display
+                    VStack(spacing: -20) {
+                        // Hour
+                        Text(currentTime, formatter: hourFormatter)
+                            .font(.system(size: geometry.size.width * 0.25, weight: .heavy, design: .default))
+                            .foregroundColor(Color(white: 0.9))
+                        
+                        // Minute
+                        Text(currentTime, formatter: minuteFormatter)
+                            .font(.system(size: geometry.size.width * 0.25, weight: .heavy, design: .default))
+                            .foregroundColor(Color(white: 0.6))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // Analog Clock Display
+                    ZStack {
+                        // Clock face
+                        Circle()
+                            .fill(Color.clear)
+                            .overlay(
+                                Circle().stroke(Color.white, lineWidth: 4)
+                            )
+                        // Hour marks
+                        ForEach(0..<12) { tick in
+                            Rectangle()
+                                .fill(Color.white)
+                                .frame(width: 2, height: geometry.size.width * 0.05)
+                                .offset(y: -geometry.size.width * 0.35)
+                                .rotationEffect(.degrees(Double(tick) * 30))
+                        }
+                        // Hour hand
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: 6, height: geometry.size.width * 0.18)
+                            .offset(y: -geometry.size.width * 0.09)
+                            .rotationEffect(hourAngle(date: currentTime))
+                        // Minute hand
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: 4, height: geometry.size.width * 0.28)
+                            .offset(y: -geometry.size.width * 0.14)
+                            .rotationEffect(minuteAngle(date: currentTime))
+                        // Second hand
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: 2, height: geometry.size.width * 0.35)
+                            .offset(y: -geometry.size.width * 0.175)
+                            .rotationEffect(.degrees(currentTime.timeIntervalSinceReferenceDate * 6))
+                            .animation(.linear(duration: 1), value: currentTime)
+                        // Center circle
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 12, height: 12)
+                    }
+                    .frame(width: min(geometry.size.width, geometry.size.height) * 0.8,
+                           height: min(geometry.size.width, geometry.size.height) * 0.8)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                     .overlay(
-                        Circle().stroke(Color.white, lineWidth: 4)
+                        Text(currentTime, formatter: digitalFormatter)
+                            .font(.system(size: geometry.size.width * 0.05, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .offset(x: 0, y: min(geometry.size.width, geometry.size.height) * 0.08)
                     )
-                // Hour marks
-                ForEach(0..<12) { tick in
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 2, height: geometry.size.width * 0.05)
-                        .offset(y: -geometry.size.width * 0.35)
-                        .rotationEffect(.degrees(Double(tick) * 30))
                 }
-                // Hour hand
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 6, height: geometry.size.width * 0.18)
-                    .offset(y: -geometry.size.width * 0.09)
-                    .rotationEffect(hourAngle(date: currentTime))
-                // Minute hand
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(width: 4, height: geometry.size.width * 0.28)
-                    .offset(y: -geometry.size.width * 0.14)
-                    .rotationEffect(minuteAngle(date: currentTime))
-                // Second hand
-                Rectangle()
-                    .fill(Color.red)
-                    .frame(width: 2, height: geometry.size.width * 0.35)
-                    .offset(y: -geometry.size.width * 0.175)
-                    .rotationEffect(.degrees(currentTime.timeIntervalSinceReferenceDate * 6))
-                    .animation(.linear(duration: 1), value: currentTime)
-                // Center circle
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 12, height: 12)
+                
+                // Toggle buttons - with visibility animation
+                if showButtons {
+                    VStack {
+                        HStack(spacing: 20) {
+                            Button(action: {
+                                isDigital = false
+                                resetButtonTimer()
+                            }) {
+                                Text("Analog")
+                                    .font(.caption)
+                                    .foregroundColor(isDigital ? .gray : .white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(isDigital ? Color.clear : Color.white.opacity(0.2))
+                                    .cornerRadius(8)
+                            }
+                            
+                            Button(action: {
+                                isDigital = true
+                                resetButtonTimer()
+                            }) {
+                                Text("Digital")
+                                    .font(.caption)
+                                    .foregroundColor(isDigital ? .white : .gray)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(isDigital ? Color.white.opacity(0.2) : Color.clear)
+                                    .cornerRadius(8)
+                            }
+                        }
+                        .padding(.top, 20)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                        Spacer()
+                    }
+                }
             }
-            .frame(width: min(geometry.size.width, geometry.size.height) * 0.8,
-                   height: min(geometry.size.width, geometry.size.height) * 0.8)
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            .background(Color.black)
-            .overlay(
-                Text(currentTime, formatter: digitalFormatter)
-                    .font(.system(size: geometry.size.width * 0.05, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
-                    .offset(x: 0, y: min(geometry.size.width, geometry.size.height) * 0.08)
-            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                showButtons = true
+                resetButtonTimer()
+            }
+            .onAppear {
+                resetButtonTimer()
+            }
+        }
+    }
+    
+    private func resetButtonTimer() {
+        buttonTimer?.invalidate()
+        buttonTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showButtons = false
+            }
         }
     }
 
