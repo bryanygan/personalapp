@@ -60,7 +60,7 @@ A multi-functional iOS dashboard designed for landscape orientation, featuring r
 ### Steps
 1. Clone the repository:
    ```bash
-   git clone [REPO_URL]
+   git clone https://github.com/bryanygan/personalapp
    ```
 2. Open `personal.xcodeproj` in Xcode.
 3. Replace the Tomorrow.io API key:
